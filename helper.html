@@ -1,0 +1,476 @@
+<!--
+    Copyright 2023 Google LLC
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        https://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Fiber Service Inquiry</title>
+    <style>
+      /* Base resets & overall layout */
+      body {
+        margin: 0;
+        font-family: "Segoe UI", sans-serif;
+        background: #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        position: relative;
+        overflow: hidden;
+      }
+      body::before,
+      body::after {
+        content: "";
+        position: absolute;
+        background: #cbd5e1;
+        border-radius: 50%;
+        opacity: 0.3;
+        z-index: 1;
+      }
+      body::before {
+        width: 400px;
+        height: 400px;
+        top: -100px;
+        left: -100px;
+      }
+      body::after {
+        width: 500px;
+        height: 500px;
+        bottom: -200px;
+        right: -150px;
+      }
+      .card {
+        position: relative;
+        z-index: 2;
+        background: #fff;
+        width: 100%;
+        max-width: 600px; /* Increased to accommodate split layout */
+        padding: 48px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      }
+      /* Multi-step form */
+      .step {
+        display: none;
+      }
+      .step.active {
+        display: block;
+      }
+      .logo-container {
+        margin-bottom: 32px;
+      }
+      .logo {
+        width: 120px;
+        height: auto;
+        margin-bottom: 24px;
+      }
+      .heading {
+        font-size: 1.25rem;
+        color: #1f2937;
+        margin-bottom: 36px;
+        font-weight: 500;
+      }
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+        color: #374151;
+      }
+      input {
+        width: 100%;
+        font-size: 1rem;
+        padding: 10px 0;
+        border: none;
+        border-bottom: 2px solid #9ca3af;
+        outline: none;
+        transition: all 0.3s ease;
+        margin-bottom: 28px;
+      }
+      input:invalid {
+        border-bottom-color: #9ca3af;
+      }
+      input:focus:not(.error) {
+        border-bottom-color: #0078d4;
+      }
+      input.error {
+        border-bottom-color: #ef4444;
+        animation: shake 0.5s;
+      }
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-10px); }
+        75% { transform: translateX(10px); }
+      }
+      .error-message {
+        color: #ef4444;
+        font-size: 0.8rem;
+        margin-top: -24px;
+        margin-bottom: 16px;
+        opacity: 0;
+        height: 0;
+        transition: all 0.3s ease;
+      }
+      .error-message.visible {
+        opacity: 1;
+        height: auto;
+      }
+      .actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+      }
+      .button {
+        margin-left: auto;
+        background-color: #0078d4;
+        color: #fff;
+        border: none;
+        padding: 12px 28px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: background-color 0.2s;
+      }
+      .button:hover {
+        background-color: #005ea0;
+      }
+      .thank-you {
+        font-size: 0.9rem;
+        margin: 32px 0;
+        color: #374151;
+      }
+      input::placeholder {
+        color: #9ca3af;
+        font-size: 0.9rem;
+      }
+      /* Address Selection styles from the provided snippet */
+      gmpx-split-layout {
+        height: 500px;
+        width: 600px;
+      }
+      gmpx-split-layout:not(:defined) {
+        visibility: hidden;
+      }
+      .panel {
+        background: white;
+        box-sizing: border-box;
+        height: 100%;
+        width: 100%;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+      }
+      .half-input-container {
+        display: flex;
+        justify-content: space-between;
+      }
+      .half-input {
+        max-width: 120px;
+      }
+      /* Optional: Address input styling (using Roboto) */
+      input.address-input {
+        height: 30px;
+        border: 0;
+        border-bottom: 1px solid black;
+        font-size: 14px;
+        font-family: Roboto, sans-serif;
+      }
+      input.address-input:focus::placeholder {
+        color: white;
+      }
+    </style>
+    <script type="module">
+      "use strict";
+      // This loads helper components from the Extended Component Library,
+      // https://github.com/googlemaps/extended-component-library.
+      import {APILoader} from 'https://ajax.googleapis.com/ajax/libs/@googlemaps/extended-component-library/0.6.11/index.min.js';
+
+      const CONFIGURATION = {
+        "ctaTitle": "Checkout",
+        "mapOptions": {"center":{"lat":37.4221,"lng":-122.0841},"fullscreenControl":true,"mapTypeControl":false,"streetViewControl":true,"zoom":11,"zoomControl":true,"maxZoom":22,"mapId":""},
+        "mapsApiKey": "AIzaSyBWtgSk8jESMon7zfdx3P4SYGguIoSJgVE",
+        "capabilities": {"addressAutocompleteControl":true,"mapDisplayControl":true,"ctaControl":false}
+      };
+
+      const SHORT_NAME_ADDRESS_COMPONENT_TYPES =
+          new Set(['street_number', 'administrative_area_level_1', 'postal_code']);
+
+      const ADDRESS_COMPONENT_TYPES_IN_FORM = [
+        'location',
+        'locality',
+        'administrative_area_level_1',
+        'postal_code',
+        'country',
+      ];
+
+      function getFormInputElement(componentType) {
+        return document.getElementById(`${componentType}-input`);
+      }
+
+      function fillInAddress(place) {
+        function getComponentName(componentType) {
+          for (const component of place.address_components || []) {
+            if (component.types[0] === componentType) {
+              return SHORT_NAME_ADDRESS_COMPONENT_TYPES.has(componentType) ?
+                  component.short_name :
+                  component.long_name;
+            }
+          }
+          return '';
+        }
+
+        function getComponentText(componentType) {
+          return (componentType === 'location') ?
+              `${getComponentName('street_number')} ${getComponentName('route')}` :
+              getComponentName(componentType);
+        }
+
+        for (const componentType of ADDRESS_COMPONENT_TYPES_IN_FORM) {
+          const input = getFormInputElement(componentType);
+          if (input) {
+            input.value = getComponentText(componentType);
+          }
+        }
+      }
+
+      function renderAddress(place) {
+        const mapEl = document.querySelector('gmp-map');
+        const markerEl = document.querySelector('gmp-advanced-marker');
+
+        if (place.geometry && place.geometry.location) {
+          mapEl.center = place.geometry.location;
+          markerEl.position = place.geometry.location;
+        } else {
+          markerEl.position = null;
+        }
+      }
+
+      async function initMap() {
+        const {Autocomplete} = await APILoader.importLibrary('places');
+
+        const mapOptions = CONFIGURATION.mapOptions;
+        mapOptions.mapId = mapOptions.mapId || 'DEMO_MAP_ID';
+        mapOptions.center = mapOptions.center || {lat: 37.4221, lng: -122.0841};
+
+        await customElements.whenDefined('gmp-map');
+        document.querySelector('gmp-map').innerMap.setOptions(mapOptions);
+        const autocomplete = new Autocomplete(getFormInputElement('location'), {
+          fields: ['address_components', 'geometry', 'name'],
+          types: ['address'],
+        });
+
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (!place.geometry) {
+            window.alert(`No details available for input: '${place.name}'`);
+            return;
+          }
+          renderAddress(place);
+          fillInAddress(place);
+        });
+      }
+
+      initMap();
+    </script>
+  </head>
+  <body>
+    <!-- Google Maps API Loader -->
+    <gmpx-api-loader key="AIzaSyBWtgSk8jESMon7zfdx3P4SYGguIoSJgVE" solution-channel="GMP_QB_addressselection_v4_cAB">
+    </gmpx-api-loader>
+    <div class="card">
+      <!-- Add novalidate to disable browser native validation (and its "!" icon) -->
+      <form id="fiberForm" novalidate>
+        <!-- STEP 1: Address (using split layout with map) -->
+        <div class="step active" id="step1">
+          <div class="logo-container">
+            <img src="att_logo.png" alt="AT&T Logo" class="logo">
+            <div class="heading">Service Address</div>
+          </div>
+          <gmpx-split-layout row-layout-min-width="600">
+            <div class="panel" slot="fixed">
+              <!-- The header "Address Selection" has been removed -->
+              <input type="text" placeholder="Address" id="location-input" class="address-input" name="address" required>
+              <input type="text" placeholder="Apt, Suite, etc (optional)" class="address-input" name="address2">
+              <input type="text" placeholder="City" id="locality-input" class="address-input" name="city" required>
+              <div class="half-input-container">
+                <input type="text" class="half-input address-input" placeholder="State/Province" id="administrative_area_level_1-input" name="state" required>
+                <input type="text" class="half-input address-input" placeholder="Zip/Postal code" id="postal_code-input" name="postal" required>
+              </div>
+              <input type="text" placeholder="Country" id="country-input" class="address-input" name="country" required>
+            </div>
+            <gmp-map slot="main">
+              <gmp-advanced-marker></gmp-advanced-marker>
+            </gmp-map>
+          </gmpx-split-layout>
+          <div class="actions">
+            <button type="button" class="button" onclick="nextStep(1)">Next</button>
+          </div>
+        </div>
+        <!-- STEP 2: Your Name -->
+        <div class="step" id="step2">
+          <div class="logo-container">
+            <img src="att_logo.png" alt="AT&T Logo" class="logo">
+            <div class="heading">Your Name</div>
+          </div>
+          <label for="firstName">First Name</label>
+          <input type="text" id="firstName" name="firstName" required>
+          <label for="lastName">Last Name</label>
+          <input type="text" id="lastName" name="lastName" required>
+          <div class="actions">
+            <button type="button" class="button" onclick="nextStep(2)">Next</button>
+          </div>
+        </div>
+        <!-- STEP 3: Contact Info -->
+        <div class="step" id="step3">
+          <div class="logo-container">
+            <img src="att_logo.png" alt="AT&T Logo" class="logo">
+            <div class="heading">Contact Info</div>
+          </div>
+          <label for="phone">Phone</label>
+          <input type="tel" id="phone" name="phone" pattern="^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$" placeholder="(123) 456-7890" title="Please enter a valid phone number" required>
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" placeholder="email@example.com" title="Please enter a valid email address" required>
+          <div class="actions">
+            <button type="button" class="button" onclick="nextStep(3)">Next</button>
+          </div>
+        </div>
+        <!-- STEP 4: Submit -->
+        <div class="step" id="step4">
+          <div class="logo-container">
+            <img src="att_logo.png" alt="AT&T Logo" class="logo">
+            <div class="heading">Submit</div>
+          </div>
+          <p class="thank-you">Thank you! We’ll reach out to you soon.</p>
+          <div class="actions">
+            <button type="submit" class="button">Submit</button>
+          </div>
+        </div>
+      </form>
+    </div>
+    <script>
+      // Multi-step Form Validation & Navigation
+      function validateInput(input) {
+        if (!input.dataset.touched) return true;
+        const errorMessage = input.parentElement.querySelector('.error-message') || document.createElement('div');
+        if (!errorMessage.classList.contains('error-message')) {
+          errorMessage.className = 'error-message';
+          input.parentElement.insertBefore(errorMessage, input.nextSibling);
+        }
+        if (!input.value.trim()) {
+          input.classList.add('error');
+          errorMessage.textContent = 'This field is required';
+          errorMessage.classList.add('visible');
+          return false;
+        }
+        if (input.validity.patternMismatch) {
+          input.classList.add('error');
+          errorMessage.textContent = input.title || 'Please correct this field';
+          errorMessage.classList.add('visible');
+          return false;
+        }
+        input.classList.remove('error');
+        errorMessage.classList.remove('visible');
+        return true;
+      }
+
+      function nextStep(currentStep) {
+        const current = document.getElementById('step' + currentStep);
+        const inputs = current.querySelectorAll('input');
+        let isValid = true;
+        inputs.forEach(input => {
+          if (!validateInput(input)) {
+            isValid = false;
+            input.classList.add('error');
+          }
+        });
+        if (!isValid) {
+          const firstInvalid = current.querySelector('input.error');
+          if (firstInvalid) {
+            firstInvalid.classList.remove('shake');
+            void firstInvalid.offsetWidth;
+            firstInvalid.classList.add('shake');
+          }
+          return;
+        }
+        document.getElementById('step' + currentStep).classList.remove('active');
+        document.getElementById('step' + (currentStep + 1)).classList.add('active');
+      }
+
+      document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', () => {
+          input.dataset.touched = 'true';
+          validateInput(input);
+        });
+        input.addEventListener('blur', () => {
+          input.dataset.touched = 'true';
+          validateInput(input);
+        });
+        input.addEventListener('invalid', (e) => {
+          e.preventDefault();
+          input.dataset.touched = 'true';
+          validateInput(input);
+        });
+      });
+
+      // Form Submission
+      document.getElementById('fiberForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (Date.now() - window.formStartTime < 2000) {
+          alert('Please review your information before submitting.');
+          return;
+        }
+        const formData = {
+          address: document.getElementById('location-input').value.trim(),
+          address2: document.querySelector('input[name="address2"]').value.trim(),
+          city: document.getElementById('locality-input').value.trim(),
+          state: document.getElementById('administrative_area_level_1-input').value.trim(),
+          postal: document.getElementById('postal_code-input').value.trim(),
+          country: document.getElementById('country-input').value.trim(),
+          firstName: document.getElementById('firstName').value.trim(),
+          lastName: document.getElementById('lastName').value.trim(),
+          phone: document.getElementById('phone').value.trim(),
+          email: document.getElementById('email').value.trim().toLowerCase()
+        };
+        if (!formData.address || !formData.city || !formData.state || !formData.postal || !formData.country ||
+            !formData.firstName || !formData.lastName || !formData.phone || !formData.email) {
+          alert('Please fill out all required fields.');
+          return;
+        }
+        if (!formData.email.includes('@') || formData.phone.replace(/\D/g,'').length !== 10) {
+          alert('Please check your contact information.');
+          return;
+        }
+        fetch('/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        })
+        .then(response => {
+          if(response.ok) {
+            setTimeout(() => {
+              window.location.href = 'https://www.att.com/buy/internet';
+            }, 1500);
+          } else {
+            alert('There was an error submitting your form. Please try again later.');
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('There was an error submitting your form. Please try again later.');
+        });
+      });
+
+      window.formStartTime = Date.now();
+    </script>
+  </body>
+</html>
