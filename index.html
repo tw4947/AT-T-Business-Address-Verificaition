@@ -1,24 +1,16 @@
-<!--
-    Copyright 2023 Google LLC
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        https://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
--->
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Fiber Service Inquiry</title>
+    <title>AT&T Business Address Verification</title>
+    <meta charset="utf-8">
+    <link rel="icon" type="image/svg+xml" href="AT&T_Globe_.svg">
     <style>
-      /* Base resets & overall layout */
+      /* ================================
+         Base Resets & Overall Layout
+      ================================ */
+      * {
+        box-sizing: border-box;
+      }
       body {
         margin: 0;
         font-family: "Segoe UI", sans-serif;
@@ -28,7 +20,6 @@
         justify-content: center;
         min-height: 100vh;
         position: relative;
-        overflow: hidden;
       }
       body::before,
       body::after {
@@ -56,11 +47,15 @@
         z-index: 2;
         background: #fff;
         width: 100%;
-        max-width: 600px; /* Increased to accommodate split layout */
+        max-width: 800px;
         padding: 48px;
+        margin: 20px auto;
         box-shadow: 0 4px 16px rgba(0,0,0,0.12);
       }
-      /* Multi-step form */
+
+      /* ================================
+         Multi-Step Form Styles
+      ================================ */
       .step {
         display: none;
       }
@@ -68,18 +63,18 @@
         display: block;
       }
       .logo-container {
-        margin-bottom: 32px;
+        margin-bottom: 24px;
       }
       .logo {
         width: 120px;
         height: auto;
-        margin-bottom: 24px;
+        margin-bottom: 12px;
       }
       .heading {
         font-size: 1.25rem;
         color: #1f2937;
-        margin-bottom: 36px;
         font-weight: 500;
+        margin-bottom: 20px;
       }
       label {
         display: block;
@@ -95,7 +90,7 @@
         border-bottom: 2px solid #9ca3af;
         outline: none;
         transition: all 0.3s ease;
-        margin-bottom: 28px;
+        margin-bottom: 24px;
       }
       input:invalid {
         border-bottom-color: #9ca3af;
@@ -128,7 +123,8 @@
       .actions {
         display: flex;
         align-items: center;
-        justify-content: flex-end;
+        justify-content: space-between;
+        gap: 10px;
       }
       .button {
         margin-left: auto;
@@ -143,6 +139,13 @@
       .button:hover {
         background-color: #005ea0;
       }
+      .button.back {
+        margin-left: 0;
+        background-color: #6b7280;
+      }
+      .button.back:hover {
+        background-color: #4b5563;
+      }
       .thank-you {
         font-size: 0.9rem;
         margin: 32px 0;
@@ -152,121 +155,163 @@
         color: #9ca3af;
         font-size: 0.9rem;
       }
-      /* Address Selection styles from the provided snippet */
-      gmpx-split-layout {
-        height: 500px;
-        width: 600px;
-      }
-      gmpx-split-layout:not(:defined) {
-        visibility: hidden;
-      }
-      .panel {
-        background: white;
-        box-sizing: border-box;
-        height: 100%;
-        width: 100%;
-        padding: 20px;
+
+      /* ================================
+         Step 1 Layout (Address & Map)
+      ================================ */
+      .step1-container {
         display: flex;
-        flex-direction: column;
-        justify-content: space-around;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
+      .step1-left {
+        flex: 1;
+        min-width: 300px;
+      }
+      .step1-right {
+        flex: 1;
+        min-width: 300px;
+      }
+      .input-group {
+        width: 100%;
+        margin-top: 10px;
       }
       .half-input-container {
         display: flex;
-        justify-content: space-between;
+        gap: 20px;
       }
       .half-input {
-        max-width: 120px;
+        width: 100%;
       }
-      /* Optional: Address input styling (using Roboto) */
-      input.address-input {
-        height: 30px;
-        border: 0;
-        border-bottom: 1px solid black;
-        font-size: 14px;
-        font-family: Roboto, sans-serif;
+      gmp-map {
+        width: 100%;
+        height: 400px; /* Adjust as needed */
       }
-      input.address-input:focus::placeholder {
-        color: white;
+
+      /* ================================
+         Responsive Media Queries
+      ================================ */
+      @media (max-width: 768px) {
+        .card {
+          max-width: 90%;
+          padding: 24px;
+        }
+        .step1-left, .step1-right {
+          flex: 1 1 100%;
+          min-width: auto;
+        }
+        gmp-map {
+          height: 300px;
+        }
       }
     </style>
+
+    <!-- Address Autocomplete & Map Script -->
     <script type="module">
       "use strict";
-      // This loads helper components from the Extended Component Library,
-      // https://github.com/googlemaps/extended-component-library.
-      import {APILoader} from 'https://ajax.googleapis.com/ajax/libs/@googlemaps/extended-component-library/0.6.11/index.min.js';
 
+      // Extended Component Library (Maps + Autocomplete)
+      import { APILoader } from 'https://ajax.googleapis.com/ajax/libs/@googlemaps/extended-component-library/0.6.11/index.min.js';
+
+      // Basic Map Configuration with your provided Map ID.
       const CONFIGURATION = {
-        "ctaTitle": "Checkout",
-        "mapOptions": {"center":{"lat":37.4221,"lng":-122.0841},"fullscreenControl":true,"mapTypeControl":false,"streetViewControl":true,"zoom":11,"zoomControl":true,"maxZoom":22,"mapId":""},
-        "mapsApiKey": "AIzaSyBWtgSk8jESMon7zfdx3P4SYGguIoSJgVE",
-        "capabilities": {"addressAutocompleteControl":true,"mapDisplayControl":true,"ctaControl":false}
+        mapOptions: {
+          center: { lat: 37.4221, lng: -122.0841 },
+          fullscreenControl: true,
+          mapTypeControl: false,
+          streetViewControl: true,
+          zoom: 11,
+          zoomControl: true,
+          maxZoom: 22,
+          mapId: "106f12ad244e36a2"
+        },
+        mapsApiKey: "AIzaSyBWtgSk8jESMon7zfdx3P4SYGguIoSJgVE",
       };
 
-      const SHORT_NAME_ADDRESS_COMPONENT_TYPES =
-          new Set(['street_number', 'administrative_area_level_1', 'postal_code']);
-
+      // Address component types to fill in the form
       const ADDRESS_COMPONENT_TYPES_IN_FORM = [
-        'location',
-        'locality',
-        'administrative_area_level_1',
-        'postal_code',
-        'country',
+        'location', // Combined street_number + route for Address
+        'locality', // City
+        'administrative_area_level_1', // State
+        'postal_code', // ZIP
+        'country' // Country
       ];
 
+      // Some types require short_name (e.g., state, zip)
+      const SHORT_NAME_ADDRESS_COMPONENT_TYPES = new Set([
+        'street_number',
+        'administrative_area_level_1',
+        'postal_code'
+      ]);
+
+      // Helper: get input element by component type
       function getFormInputElement(componentType) {
-        return document.getElementById(`${componentType}-input`);
+        return document.getElementById(componentType + '-input');
       }
 
-      function fillInAddress(place) {
-        function getComponentName(componentType) {
-          for (const component of place.address_components || []) {
-            if (component.types[0] === componentType) {
-              return SHORT_NAME_ADDRESS_COMPONENT_TYPES.has(componentType) ?
-                  component.short_name :
-                  component.long_name;
-            }
+      // Returns the correct name (short or long) for the given component type
+      function getComponentName(place, componentType) {
+        for (const component of place.address_components || []) {
+          if (component.types.includes(componentType)) {
+            return SHORT_NAME_ADDRESS_COMPONENT_TYPES.has(componentType)
+              ? component.short_name
+              : component.long_name;
           }
-          return '';
         }
+        return '';
+      }
 
-        function getComponentText(componentType) {
-          return (componentType === 'location') ?
-              `${getComponentName('street_number')} ${getComponentName('route')}` :
-              getComponentName(componentType);
+      // For "location", combine street_number and route; otherwise, use component name
+      function getComponentText(place, componentType) {
+        if (componentType === 'location') {
+          const streetNumber = getComponentName(place, 'street_number');
+          const route = getComponentName(place, 'route');
+          return (streetNumber + ' ' + route).trim();
+        } else {
+          return getComponentName(place, componentType);
         }
+      }
 
-        for (const componentType of ADDRESS_COMPONENT_TYPES_IN_FORM) {
+      // Fill in all relevant address fields from the selected place
+      function fillInAddress(place) {
+        ADDRESS_COMPONENT_TYPES_IN_FORM.forEach(componentType => {
           const input = getFormInputElement(componentType);
           if (input) {
-            input.value = getComponentText(componentType);
+            input.value = getComponentText(place, componentType);
           }
-        }
+        });
       }
 
+      // Re-center the map and set the marker's position (with a null-check)
       function renderAddress(place) {
         const mapEl = document.querySelector('gmp-map');
         const markerEl = document.querySelector('gmp-advanced-marker');
-
         if (place.geometry && place.geometry.location) {
           mapEl.center = place.geometry.location;
-          markerEl.position = place.geometry.location;
+          if (markerEl) {
+            markerEl.position = place.geometry.location;
+          }
         } else {
-          markerEl.position = null;
+          if (markerEl) {
+            markerEl.position = null;
+          }
         }
       }
 
       async function initMap() {
-        const {Autocomplete} = await APILoader.importLibrary('places');
+        const { Autocomplete } = await APILoader.importLibrary('places');
 
-        const mapOptions = CONFIGURATION.mapOptions;
-        mapOptions.mapId = mapOptions.mapId || 'DEMO_MAP_ID';
-        mapOptions.center = mapOptions.center || {lat: 37.4221, lng: -122.0841};
-
+        // Wait until <gmp-map> is defined
         await customElements.whenDefined('gmp-map');
-        document.querySelector('gmp-map').innerMap.setOptions(mapOptions);
-        const autocomplete = new Autocomplete(getFormInputElement('location'), {
+
+        // Set map options
+        document.querySelector('gmp-map').innerMap.setOptions(CONFIGURATION.mapOptions);
+
+        // Set up Autocomplete on the address input
+        const addressInput = getFormInputElement('location');
+        const autocomplete = new Autocomplete(addressInput, {
           fields: ['address_components', 'geometry', 'name'],
-          types: ['address'],
+          types: ['address']
         });
 
         autocomplete.addListener('place_changed', () => {
@@ -284,38 +329,64 @@
     </script>
   </head>
   <body>
-    <!-- Google Maps API Loader -->
-    <gmpx-api-loader key="AIzaSyBWtgSk8jESMon7zfdx3P4SYGguIoSJgVE" solution-channel="GMP_QB_addressselection_v4_cAB">
+    <!-- gmpx-api-loader (required for the Extended Component Library) -->
+    <gmpx-api-loader
+      key="AIzaSyBWtgSk8jESMon7zfdx3P4SYGguIoSJgVE"
+      solution-channel="GMP_QB_addressselection_v4_cAB">
     </gmpx-api-loader>
+
     <div class="card">
-      <!-- Add novalidate to disable browser native validation (and its "!" icon) -->
+      <!-- Multi-step Form -->
       <form id="fiberForm" novalidate>
-        <!-- STEP 1: Address (using split layout with map) -->
+        <!-- Hidden inputs for FormSubmit -->
+        <input type="hidden" name="_subject" value="New Lead Submitted">
+        <input type="hidden" name="_captcha" value="false">
+
+        <!-- STEP 1: Address & Map (Fields on the Left, Map on the Right) -->
         <div class="step active" id="step1">
-          <div class="logo-container">
-            <img src="att_logo.png" alt="AT&T Logo" class="logo">
-            <div class="heading">Service Address</div>
-          </div>
-          <gmpx-split-layout row-layout-min-width="600">
-            <div class="panel" slot="fixed">
-              <!-- The header "Address Selection" has been removed -->
-              <input type="text" placeholder="Address" id="location-input" class="address-input" name="address" required>
-              <input type="text" placeholder="Apt, Suite, etc (optional)" class="address-input" name="address2">
-              <input type="text" placeholder="City" id="locality-input" class="address-input" name="city" required>
-              <div class="half-input-container">
-                <input type="text" class="half-input address-input" placeholder="State/Province" id="administrative_area_level_1-input" name="state" required>
-                <input type="text" class="half-input address-input" placeholder="Zip/Postal code" id="postal_code-input" name="postal" required>
+          <div class="step1-container">
+            <!-- Left Column -->
+            <div class="step1-left">
+              <div class="logo-container">
+                <img src="att_logo.png" alt="AT&T Logo" class="logo">
+                <div class="heading">Service Address</div>
               </div>
-              <input type="text" placeholder="Country" id="country-input" class="address-input" name="country" required>
+              <div class="input-group">
+                <!-- "location" input: combines street_number + route -->
+                <input type="text" placeholder="Address" id="location-input" name="address" />
+                <input type="text" placeholder="Apt, Suite, etc (optional)" name="address2" />
+                <!-- "locality" input: city -->
+                <input type="text" placeholder="City" id="locality-input" name="city" />
+                <div class="half-input-container">
+                  <!-- "administrative_area_level_1": state -->
+                  <input type="text"
+                         class="half-input"
+                         placeholder="State/Province"
+                         id="administrative_area_level_1-input"
+                         name="state" />
+                  <!-- "postal_code": ZIP -->
+                  <input type="text"
+                         class="half-input"
+                         placeholder="Zip/Postal code"
+                         id="postal_code-input"
+                         name="postal" />
+                </div>
+                <!-- "country": country -->
+                <input type="text" placeholder="Country" id="country-input" name="country" />
+              </div>
             </div>
-            <gmp-map slot="main">
-              <gmp-advanced-marker></gmp-advanced-marker>
-            </gmp-map>
-          </gmpx-split-layout>
-          <div class="actions">
+            <!-- Right Column: Map -->
+            <div class="step1-right">
+              <gmp-map>
+                <gmp-advanced-marker></gmp-advanced-marker>
+              </gmp-map>
+            </div>
+          </div>
+          <div class="actions" style="margin-top: 20px;">
             <button type="button" class="button" onclick="nextStep(1)">Next</button>
           </div>
         </div>
+
         <!-- STEP 2: Your Name -->
         <div class="step" id="step2">
           <div class="logo-container">
@@ -323,13 +394,15 @@
             <div class="heading">Your Name</div>
           </div>
           <label for="firstName">First Name</label>
-          <input type="text" id="firstName" name="firstName" required>
+          <input type="text" id="firstName" name="firstName" required />
           <label for="lastName">Last Name</label>
-          <input type="text" id="lastName" name="lastName" required>
+          <input type="text" id="lastName" name="lastName" required />
           <div class="actions">
+            <button type="button" class="button back" onclick="prevStep(2)">Back</button>
             <button type="button" class="button" onclick="nextStep(2)">Next</button>
           </div>
         </div>
+
         <!-- STEP 3: Contact Info -->
         <div class="step" id="step3">
           <div class="logo-container">
@@ -337,73 +410,127 @@
             <div class="heading">Contact Info</div>
           </div>
           <label for="phone">Phone</label>
-          <input type="tel" id="phone" name="phone" pattern="^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$" placeholder="(123) 456-7890" title="Please enter a valid phone number" required>
+          <input
+            type="tel"
+            id="phone"
+            name="phone"
+            pattern="^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$"
+            placeholder="(123) 456-7890"
+            title="Please enter a valid phone number"
+            required
+          />
           <label for="email">Email</label>
-          <input type="email" id="email" name="email" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" placeholder="email@example.com" title="Please enter a valid email address" required>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+            placeholder="email@domain.com"
+            title="Please enter a valid email address (example@domain.com)"
+            required
+          />
           <div class="actions">
-            <button type="button" class="button" onclick="nextStep(3)">Next</button>
-          </div>
-        </div>
-        <!-- STEP 4: Submit -->
-        <div class="step" id="step4">
-          <div class="logo-container">
-            <img src="att_logo.png" alt="AT&T Logo" class="logo">
-            <div class="heading">Submit</div>
-          </div>
-          <p class="thank-you">Thank you! We’ll reach out to you soon.</p>
-          <div class="actions">
+            <button type="button" class="button back" onclick="prevStep(3)">Back</button>
             <button type="submit" class="button">Submit</button>
           </div>
         </div>
+
+        <!-- STEP 4: Thank You Message -->
+        <div class="step" id="step4">
+          <div class="logo-container">
+            <img src="att_logo.png" alt="AT&T Logo" class="logo">
+            <div class="heading">Thank You!</div>
+          </div>
+          <p class="thank-you">An AT&T Business local representative will reach out to you shortly.</p>
+        </div>
       </form>
     </div>
+
     <script>
+      // ===============================
       // Multi-step Form Validation & Navigation
+      // ===============================
+      function validateEmail(email) {
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        return emailRegex.test(email);
+      }
+
       function validateInput(input) {
         if (!input.dataset.touched) return true;
-        const errorMessage = input.parentElement.querySelector('.error-message') || document.createElement('div');
-        if (!errorMessage.classList.contains('error-message')) {
-          errorMessage.className = 'error-message';
-          input.parentElement.insertBefore(errorMessage, input.nextSibling);
-        }
         if (!input.value.trim()) {
           input.classList.add('error');
-          errorMessage.textContent = 'This field is required';
-          errorMessage.classList.add('visible');
+          return false;
+        }
+        if (input.type === 'email' && !validateEmail(input.value.trim())) {
+          input.classList.add('error');
           return false;
         }
         if (input.validity.patternMismatch) {
           input.classList.add('error');
-          errorMessage.textContent = input.title || 'Please correct this field';
-          errorMessage.classList.add('visible');
           return false;
         }
         input.classList.remove('error');
-        errorMessage.classList.remove('visible');
         return true;
       }
 
-      function nextStep(currentStep) {
-        const current = document.getElementById('step' + currentStep);
-        const inputs = current.querySelectorAll('input');
+      function validateStep(stepNumber) {
+        const step = document.getElementById('step' + stepNumber);
         let isValid = true;
+
+        // Special validation for step 1 (address)
+        if (stepNumber === 1) {
+          const requiredFields = [
+            'location-input',
+            'locality-input',
+            'administrative_area_level_1-input',
+            'postal_code-input',
+            'country-input'
+          ];
+          requiredFields.forEach(fieldId => {
+            const input = document.getElementById(fieldId);
+            if (!input.value.trim()) {
+              isValid = false;
+              input.classList.add('error');
+            } else {
+              input.classList.remove('error');
+            }
+          });
+          return isValid;
+        }
+
+        // Validation for other steps
+        const inputs = step.querySelectorAll('input[required]');
         inputs.forEach(input => {
-          if (!validateInput(input)) {
+          if (!input.value.trim()) {
             isValid = false;
             input.classList.add('error');
           }
         });
-        if (!isValid) {
-          const firstInvalid = current.querySelector('input.error');
+        return isValid;
+      }
+
+      function nextStep(currentStep) {
+        if (!validateStep(currentStep)) {
+          const firstInvalid = document.getElementById('step' + currentStep).querySelector('input.error');
           if (firstInvalid) {
             firstInvalid.classList.remove('shake');
             void firstInvalid.offsetWidth;
             firstInvalid.classList.add('shake');
+            firstInvalid.focus();
           }
+          return;
+        }
+        // If on step 3, let form submission process
+        if (currentStep === 3) {
           return;
         }
         document.getElementById('step' + currentStep).classList.remove('active');
         document.getElementById('step' + (currentStep + 1)).classList.add('active');
+      }
+
+      function prevStep(currentStep) {
+        document.getElementById('step' + currentStep).classList.remove('active');
+        document.getElementById('step' + (currentStep - 1)).classList.add('active');
       }
 
       document.querySelectorAll('input').forEach(input => {
@@ -422,51 +549,62 @@
         });
       });
 
-      // Form Submission
+      // ===============================
+      // Form Submission via Fetch to FormSubmit
+      // ===============================
       document.getElementById('fiberForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        if (Date.now() - window.formStartTime < 2000) {
-          alert('Please review your information before submitting.');
+
+        // Validate fields in step 3
+        const step3 = document.getElementById('step3');
+        const inputs = step3.querySelectorAll('input[required]');
+        let isValid = true;
+        inputs.forEach(input => {
+          if (!input.value.trim() || (input.type === 'email' && !validateEmail(input.value.trim()))) {
+            isValid = false;
+            input.classList.add('error');
+            input.classList.remove('shake');
+            void input.offsetWidth;
+            input.classList.add('shake');
+          }
+        });
+        if (!isValid) {
+          const firstInvalid = step3.querySelector('input.error');
+          if (firstInvalid) {
+            firstInvalid.focus();
+          }
           return;
         }
-        const formData = {
-          address: document.getElementById('location-input').value.trim(),
-          address2: document.querySelector('input[name="address2"]').value.trim(),
-          city: document.getElementById('locality-input').value.trim(),
-          state: document.getElementById('administrative_area_level_1-input').value.trim(),
-          postal: document.getElementById('postal_code-input').value.trim(),
-          country: document.getElementById('country-input').value.trim(),
-          firstName: document.getElementById('firstName').value.trim(),
-          lastName: document.getElementById('lastName').value.trim(),
-          phone: document.getElementById('phone').value.trim(),
-          email: document.getElementById('email').value.trim().toLowerCase()
-        };
-        if (!formData.address || !formData.city || !formData.state || !formData.postal || !formData.country ||
-            !formData.firstName || !formData.lastName || !formData.phone || !formData.email) {
-          alert('Please fill out all required fields.');
-          return;
-        }
-        if (!formData.email.includes('@') || formData.phone.replace(/\D/g,'').length !== 10) {
-          alert('Please check your contact information.');
-          return;
-        }
-        fetch('/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+
+        // Create FormData object from the form
+        const form = document.getElementById('fiberForm');
+        const formData = new FormData(form);
+
+        // Show thank you step immediately
+        document.getElementById('step3').classList.remove('active');
+        document.getElementById('step4').classList.add('active');
+
+        // Post the form data to FormSubmit
+        fetch("https://formsubmit.co/tw4947@att.com", {
+          method: "POST",
+          body: formData,
+          headers: {
+            'Accept': 'application/json'
+          }
         })
         .then(response => {
-          if(response.ok) {
+          if (response.ok) {
+            // Wait a moment and then redirect
             setTimeout(() => {
-              window.location.href = 'https://www.att.com/buy/internet';
+              window.location.href = "https://www.att.com";
             }, 1500);
           } else {
-            alert('There was an error submitting your form. Please try again later.');
+            alert("There was an error submitting your form. Please try again later.");
           }
         })
         .catch(error => {
-          console.error('Error:', error);
-          alert('There was an error submitting your form. Please try again later.');
+          console.error("Error:", error);
+          alert("There was an error submitting your form. Please try again later.");
         });
       });
 
