@@ -3,6 +3,8 @@
   <head>
     <title>AT&T Business Address Verification</title>
     <meta charset="utf-8">
+    <!-- Added meta viewport for mobile responsiveness -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="AT&T_Globe_.ico">
     <style>
       /* ================================
@@ -20,6 +22,7 @@
         justify-content: center;
         min-height: 100vh;
         position: relative;
+        padding: 10px; /* added slight padding for mobile devices */
       }
       body::before,
       body::after {
@@ -193,8 +196,12 @@
       ================================ */
       @media (max-width: 768px) {
         .card {
-          max-width: 90%;
+          max-width: 100%;
           padding: 24px;
+          margin: 10px;
+        }
+        .step1-container {
+          flex-direction: column;
         }
         .step1-left, .step1-right {
           flex: 1 1 100%;
